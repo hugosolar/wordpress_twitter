@@ -260,6 +260,26 @@ function get_twitter_recent() {
         return null;
     }
 }
+function get_twitter_timeline() {
+
+    $option = get_option('twitter_token');
+    if (!empty($option)) {
+        $content = get_transient( 'twitter_timeline' );
+        if (false === get_transient('twitter_timeline')) {
+            $access_token = get_option('twitter_token');
+            $connection = new TwitterOAuth(CONSUMER_KEY, CONSUMER_SECRET, $access_token['oauth_token'], $access_token['oauth_token_secret']);
+            $content = $connection->get('statuses/user_timeline');
+            set_transient('twitter_timeline',$content,60*10);
+        }
+        if (!empty($content)) {
+            return $content;
+        } else {
+            return null;
+        }
+    } else {
+        return null;
+    }
+}
 }
 // Instantiate the class object
 $oauth_twitter = oAuth_twitter::getInstance();
