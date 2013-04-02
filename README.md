@@ -13,20 +13,26 @@ Una vez activado veremos la opción en Apariencia > Conectar Twitter un boton qu
 Por defecto el plugin guarda en un transient el objeto de los últimos 20 tweets del timeline autenticado, este transient se refresca cada 10 minutos, con esto impedimos que se consulte el api de manera reiterativa cuando no es necesario.
 
 Para su utilización 
-	<code>	
+
 	global $oauth_twitter;
+
 	$twitter_timeline = $oauth_twitter->get_twitter_timeline();
+
 	foreach ($twitter_timeline as $tweet):
-		echo '<pre>'; print_r($tweet); echo '</pre>';
+
+		print_r($tweet);
+
 	endforeach;
-	</code>
 
 o si solo deseamos obtener el último tweet parseado seria:
-	<code>
+
+
 	global $oauth_twitter;
+
 	$last_tweet = $oauth_twitter->get_twitter_recent();
-	echo '<pre>'; print_r($last_tweet); echo '</pre>';
-	</code>
+
+	print_r($last_tweet);
+
 
 English
 -------
