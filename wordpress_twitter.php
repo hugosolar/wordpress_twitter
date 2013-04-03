@@ -13,8 +13,8 @@ License: GPL2
 require_once('oauth/twitteroauth.php');
 
 //Configure your consumer key and consumer secret
-define('CONSUMER_KEY', 'YOUR_CONSUMER_KEY');
-define('CONSUMER_SECRET', 'YOUR_CONSUMER_SECRET');
+define('CONSUMER_KEY', 'TAYMbcrcPWai5qyHlPBbg');
+define('CONSUMER_SECRET', 'cLCrkWWfbHHs3PwDoHCmJQqnXm0gOVYpLO3XU7hlQ');
 
 /**
 * oAuth Twitter Class
@@ -48,10 +48,11 @@ class oAuth_twitter {
             add_action('admin_init', array($this, 'save_theme_settings'));
             add_action('init',array($this,'check_oauth'),1);
         endif;
+        add_shortcode( 'twitter', array($this,'loop_timeline') );
     }
     
     function theme_admin(){
-        add_theme_page('Conectar Twitter', 'Conectar Twitter', 'edit_others_posts', 'twit_settings', array($this, 'twit_settings'));
+        add_options_page('Conectar Twitter', 'Conectar Twitter', 'edit_others_posts', 'twit_settings', array($this, 'twit_settings'));
     }
     
     function twit_settings(){
@@ -133,6 +134,13 @@ class oAuth_twitter {
                         $logged_in = $this->get_twitter_recent();
                         echo '<td>Logeado como: '.$logged_in->user.' <a href="'.admin_url('themes.php?page=twit_settings&action=twitter_bye').'" class="button">Desconectar</a></td>';                        
                     }
+                     echo '</tr>';
+                     echo '<tr>';
+                     echo '<th>&nbsp;</th>';
+                        echo '<td style="display:block;height: 300px;overflow: auto;">';
+                            //echo '<pre>';print_r($this->get_twitter_timeline()); echo '</pre>';
+                            echo '<pre>';print_r($this->get_twitter_user_timeline('felipelavinz')); echo '</pre>';
+                        echo '</td>';
                      echo '</tr>';
                 echo '</table>';
                 echo '<p class="submit">';
@@ -228,7 +236,34 @@ function twitter_time($a) {
         if($d < $day * 365) return "hace ". floor($d / $day) . " días";
         //else return more than a year
         return "mas de 1 año";
-    }
+    }    
+}
+function loop_timeline($atts) {
+    extract( shortcode_atts( array(
+        'user' => null,
+    ), $atts ) );
+    $args = array();
+
+    if (!empty($user)):        
+        $twits = $this->get_twitter_user_timeline($user);
+    else:
+        $twits = $this->get_twitter_timeline();
+    endif;
+    /*
+    * twits loop
+    */
+    $out ='';
+    $out .= '<div class="twitts-entries">';
+    foreach($twits as $twit):
+        $out .= '<div class="hentry">';
+            $out .= '<h5 class="entry-title">'.$this->twitter_parse($twit->text).'</h5>';
+            $out .= '<span class="published">'.$this->twitter_time($twit->created_at).'</span>';
+        $out .= '</div>';
+    endforeach;
+    $out .= '</div>';
+    
+    return $out;
+    
 }
 function get_twitter_recent() {
 
@@ -260,6 +295,46 @@ function get_twitter_recent() {
         return null;
     }
 }
+function get_my_info() {
+    $option = get_option('twitter_token');
+    if (!empty($option)) {
+        $content = get_transient( 'twitter_timeline' );
+        if (false === get_transient('twitter_timeline')) {
+            $access_token = get_option('twitter_token');
+            $connection = new TwitterOAuth(CONSUMER_KEY, CONSUMER_SECRET, $access_token['oauth_token'], $access_token['oauth_token_secret']);
+            $content = $connection->get('statuses/user_timeline');
+            set_transient('twitter_timeline',$content,60*10);
+        }
+        if (!empty($content)) {            
+            return $content[0]->user;
+        } else {
+            return null;
+        }
+    } else {
+        return null;
+    }
+}
+function get_user_info($user) {
+    $option = get_option('twitter_token');
+    if (!empty($user)):
+        if (!empty($option)) {
+            $content = get_transient( 'twitter_'.$user.'_timeline' );
+            if (false === get_transient('twitter_'.$user.'_timeline')) {
+                $access_token = get_option('twitter_token');
+                $connection = new TwitterOAuth(CONSUMER_KEY, CONSUMER_SECRET, $access_token['oauth_token'], $access_token['oauth_token_secret']);
+                $content = $connection->get('statuses/user_timeline',array('screen_name'=>$user));
+                set_transient('twitter_'.$user.'_timeline',$content,60*30);
+            }
+            if (!empty($content)) {
+                return $content[0]->user;
+            } else {
+                return null;
+            }
+        } else {
+            return null;
+        }
+    endif;
+}
 function get_twitter_timeline() {
 
     $option = get_option('twitter_token');
@@ -270,6 +345,26 @@ function get_twitter_timeline() {
             $connection = new TwitterOAuth(CONSUMER_KEY, CONSUMER_SECRET, $access_token['oauth_token'], $access_token['oauth_token_secret']);
             $content = $connection->get('statuses/user_timeline');
             set_transient('twitter_timeline',$content,60*10);
+        }
+        if (!empty($content)) {
+            return $content;
+        } else {
+            return null;
+        }
+    } else {
+        return null;
+    }
+}
+function get_twitter_user_timeline($user) {
+
+    $option = get_option('twitter_token');
+    if (!empty($option)) {
+        $content = get_transient( 'twitter_'.$user.'_timeline' );
+        if (false === get_transient('twitter_'.$user.'_timeline')) {
+            $access_token = get_option('twitter_token');
+            $connection = new TwitterOAuth(CONSUMER_KEY, CONSUMER_SECRET, $access_token['oauth_token'], $access_token['oauth_token_secret']);
+            $content = $connection->get('statuses/user_timeline',array('screen_name'=>$user));
+            set_transient('twitter_'.$user.'_timeline',$content,60*10);
         }
         if (!empty($content)) {
             return $content;
