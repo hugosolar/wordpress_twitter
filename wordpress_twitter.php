@@ -18,7 +18,7 @@ define('CONSUMER_SECRET', 'cLCrkWWfbHHs3PwDoHCmJQqnXm0gOVYpLO3XU7hlQ');
 
 /**
 * oAuth Twitter Class
-* This class authenticate with twitter to get the current user timeline
+* This class authenticate with twitter to get the current user timeline (original singleton class by Felipe Lavin (@felipelavinz))
 * @author Hugosolar.net hola@hugosolar.net
 * @version 0.1
 * 
@@ -30,7 +30,7 @@ class oAuth_twitter {
     private function __construct(){
         $this->setupActions();
         
-        $this->settings = get_option(__CLASS__ .'_theme_settings');
+        $this->settings = get_option(__CLASS__ .'_twit_settings');
     }
     public static function getInstance(){
         if ( !isset(self::$instance) ){
@@ -57,11 +57,11 @@ class oAuth_twitter {
     
     function twit_settings(){
         global $id_base, $name_base;
-        $data = get_option(__CLASS__ .'_theme_settings');
+        $data = get_option(__CLASS__ .'_twit_settings');
         $id_base = str_replace('::', '_', __METHOD__ ) .'_';
         $name_base = __CLASS__ .'['. __FUNCTION__ .']';
 
-        define('OAUTH_CALLBACK', admin_url('themes.php?page=twit_settings&action=twitter_callback'));        
+        define('OAUTH_CALLBACK', admin_url('options-general.php?page=twit_settings&action=twitter_callback'));        
 
         function theme_settings_get_id($id){
             global $id_base;
@@ -102,7 +102,7 @@ class oAuth_twitter {
 
               /*
               * Now we can query the API
-              * you can change the query if you like
+              * you can change the first query if you like
               * https://dev.twitter.com/docs/api/1.1
               */
               $content = $connection->get('statuses/user_timeline');
@@ -121,27 +121,30 @@ class oAuth_twitter {
 
             echo '<div id="icon-themes" class="icon32"><br /></div>';
             echo '<h2>Twitter oAuth</h2>';
-            echo '<form action="'. admin_url('themes.php?page=twit_settings') .'" method="post">';
+            echo '<form action="'. admin_url('options-general.php?page=twit_settings') .'" method="post">';
                 echo '<table class="form-table">';
                     
                     echo '<tr>';
                             echo '<th><label for="'. theme_settings_get_id('twitter') .'">Twitter</label></th>';
                     $twitter_option = get_option('twitter_token');
-                    if (empty($twitter_option)) {                        
-                            echo '<td><a href="'.admin_url('themes.php?page=twit_settings&action=authorize_twitter').'" class="button">Identificarse con twitter</a></td>';
+                    if (empty($twitter_option)) {
+                            echo '<td><a href="'.admin_url('options-general.php?page=twit_settings&action=authorize_twitter').'" class="button">Identificarse con twitter</a></td>';
                        
                     } else {
-                        $logged_in = $this->get_twitter_recent();
-                        echo '<td>Logeado como: '.$logged_in->user.' <a href="'.admin_url('themes.php?page=twit_settings&action=twitter_bye').'" class="button">Desconectar</a></td>';                        
+                        $logged_in = $this->get_my_info();
+                        echo '<td>Logeado como: '.$logged_in->screen_name.' <a href="'.admin_url('options-general.php?page=twit_settings&action=twitter_bye').'" class="button">Desconectar</a></td>';                        
                     }
                      echo '</tr>';
+                     if (!empty($twitter_option)) :
                      echo '<tr>';
-                     echo '<th>&nbsp;</th>';
-                        echo '<td style="display:block;height: 300px;overflow: auto;">';
-                            //echo '<pre>';print_r($this->get_twitter_timeline()); echo '</pre>';
-                            echo '<pre>';print_r($this->get_twitter_user_timeline('felipelavinz')); echo '</pre>';
+                        echo '<th><label for="name="'.theme_settings_get_id('twitter_screen_name').'">Búsqueda:</label></th>';
+                        echo '<td>';
+                            echo '<input type="text" name="'.theme_settings_get_name('twitter_screen_name').'" name="'.theme_settings_get_id('twitter_screen_name').'" value="'.$data['twitter_screen_name'].'">';
+                            echo '<br><small>Se puede buscar en la cuenta de un usuario (ej. @usuario) o en hashtags (ej. #mbqlp ) o cualquier palabra, si no se especifica, retornará datos del TL de la cuenta logeada </small>';
                         echo '</td>';
                      echo '</tr>';
+                     endif;
+                     
                 echo '</table>';
                 echo '<p class="submit">';
                     echo '<input type="hidden" name="action" value="'. __METHOD__ .'" />';
@@ -152,12 +155,17 @@ class oAuth_twitter {
         echo '</div>';
     }
     function save_theme_settings(){
-        if ( isset($_POST['action']) && $_POST['action'] === __CLASS__ .'::theme_settings' ) {
-            if ( wp_verify_nonce($_POST['twit_settings_nonce'], __CLASS__ .'::theme_settings') ) {
-                foreach ( $_POST[__CLASS__]['theme_settings'] as $k => $v ){
-                    if ( is_string($v) ) $_POST[__CLASS__]['theme_settings'][$k] = stripcslashes($v);
+        
+        if ( isset($_POST['action']) && $_POST['action'] === __CLASS__ .'::twit_settings' ) {
+
+            if ( wp_verify_nonce($_POST['twit_settings_nonce'], __CLASS__ .'::twit_settings') ) {
+
+                delete_transient( 'twitter_timeline' );
+                foreach ( $_POST[__CLASS__]['twit_settings'] as $k => $v ){
+                    if ( is_string($v) ) $_POST[__CLASS__]['twit_settings'][$k] = stripcslashes($v);
                 }
-                update_option(__CLASS__ .'_'. theme_settings, $_POST[__CLASS__]['theme_settings']);
+
+                update_option(__CLASS__ .'_'. twit_settings, $_POST[__CLASS__]['twit_settings']);
             }
         }
     }
@@ -167,7 +175,7 @@ class oAuth_twitter {
         if ($_GET['action'] == 'authorize_twitter') {            
             //session_start();
             $connection = new TwitterOAuth(CONSUMER_KEY, CONSUMER_SECRET);
-            $request_token = $connection->getRequestToken(admin_url('themes.php?page=twit_settings&action=twitter_callback'));
+            $request_token = $connection->getRequestToken(admin_url('options-general.php?page=twit_settings&action=twitter_callback'));
             
             $_SESSION['oauth_token'] = $token = $request_token['oauth_token'];
             $_SESSION['oauth_token_secret'] = $request_token['oauth_token_secret'];
@@ -238,6 +246,13 @@ function twitter_time($a) {
         return "mas de 1 año";
     }    
 }
+/**
+* Loop timeline
+* loops a specific timeline
+* @param string $user user screen name
+* @return hFeed layout looping the specific timeline
+* @author hugosolar
+*/
 function loop_timeline($atts) {
     extract( shortcode_atts( array(
         'user' => null,
@@ -265,27 +280,92 @@ function loop_timeline($atts) {
     return $out;
     
 }
-function get_twitter_recent() {
+/**
+* Search in twitter
+* Perform a search in twitter and transient its result
+* @param string $q search string to find in twitter (could be @user or #hastag or just a string)
+* @return Twitter search API object
+* @author hugosolar
+*/
+function search($search_id,$q) {
+    
+    $option = get_option('twitter_token');
+    if (!empty($option)) {
+        $content = get_transient( 'twitter_search_'.$search_id );
+        if (false === get_transient('twitter_search_'.$search_id)) {
+            $access_token = get_option('twitter_token');
+            $connection = new TwitterOAuth(CONSUMER_KEY, CONSUMER_SECRET, $access_token['oauth_token'], $access_token['oauth_token_secret']);
+            
+            $content = $connection->get('search/tweets',array('q' => urlencode($q)) );
+            set_transient('twitter_search_'.$search_id,$content,60*10);
+        }
 
+        if (!empty($content)) {
+            return $content;
+        } else {
+            return null;
+        }
+    } else {
+        return null;
+    }
+}
+/**
+* Auto search in twitter
+* Perfomr a search in twitter with the specified config data and transient its result
+* @return Twitter search API object
+* @author hugosolar
+*/
+function auto_search() {
+    
     $option = get_option('twitter_token');
     if (!empty($option)) {
         $content = get_transient( 'twitter_timeline' );
         if (false === get_transient('twitter_timeline')) {
             $access_token = get_option('twitter_token');
             $connection = new TwitterOAuth(CONSUMER_KEY, CONSUMER_SECRET, $access_token['oauth_token'], $access_token['oauth_token_secret']);
-            $content = $connection->get('statuses/user_timeline');
+            
+            $content = $connection->get('search/tweets',array('q' => urlencode($q)) );
+            set_transient('twitter_timeline',60*10);
+        }
+
+        if (!empty($content)) {
+            return $content->statuses;
+        } else {
+            return null;
+        }
+    } else {
+        return null;
+    }
+}
+/**
+* Get twitter recent tweet
+* get the last tweet of a timeline search or a twitter search
+* @return Twitter search API object first element (last post)
+* @author hugosolar
+*/
+function get_twitter_recent() {
+    
+    $option = get_option('twitter_token');
+    if (!empty($option)) {
+        $content = get_transient( 'twitter_timeline' );
+        if (false === get_transient('twitter_timeline')) {
+            $access_token = get_option('twitter_token');
+            $connection = new TwitterOAuth(CONSUMER_KEY, CONSUMER_SECRET, $access_token['oauth_token'], $access_token['oauth_token_secret']);
+            if (!empty($this->settings['twitter_screen_name'])) {
+                $content = $connection->get('search/tweets',array('q' => urlencode($this->settings['twitter_screen_name'])) );
+            } else {
+                $content = $connection->get('statuses/user_timeline');    
+            }
+            
             set_transient('twitter_timeline',$content,60*10);
         }
+
         if (!empty($content)) {
-            $last_tweet = $content[0];
-            
-            $return_tweet = new stdClass;
-            $return_tweet->id = $last_tweet->id_str;
-            $return_tweet->date = $last_tweet->created_at;
-            $return_tweet->text = $this->twitter_parse($last_tweet->text);
-            $return_tweet->user = $last_tweet->user->screen_name;
-            $return_tweet->user_thumb = $last_tweet->user->profile_image_url;
-            $return_tweet->full_name = $last_tweet->user->name;
+            //if the search is activated, return a diferent object 
+            if (!empty($this->settings['twitter_screen_name']))
+                $return_tweet = $content->statuses[0];
+            else
+                $return_tweet = $content[0];
 
             return $return_tweet;
         } else {
@@ -295,15 +375,21 @@ function get_twitter_recent() {
         return null;
     }
 }
+/**
+* Get my info
+* get the object with the user info of the logged account and transients it
+* @return Twitter user object from the last post
+* @author hugosolar
+*/
 function get_my_info() {
     $option = get_option('twitter_token');
     if (!empty($option)) {
-        $content = get_transient( 'twitter_timeline' );
-        if (false === get_transient('twitter_timeline')) {
+        $content = get_transient( 'current_timeline' );
+        if (false === get_transient('current_timeline')) {
             $access_token = get_option('twitter_token');
             $connection = new TwitterOAuth(CONSUMER_KEY, CONSUMER_SECRET, $access_token['oauth_token'], $access_token['oauth_token_secret']);
             $content = $connection->get('statuses/user_timeline');
-            set_transient('twitter_timeline',$content,60*10);
+            set_transient('current_timeline',$content,60*10);
         }
         if (!empty($content)) {            
             return $content[0]->user;
@@ -314,6 +400,13 @@ function get_my_info() {
         return null;
     }
 }
+/**
+* Get user info
+* get the object with the user info of the specified user account and transients it
+* @param string $user screen_name from user
+* @return Twitter user object from the last post
+* @author hugosolar
+*/
 function get_user_info($user) {
     $option = get_option('twitter_token');
     if (!empty($user)):
@@ -335,16 +428,22 @@ function get_user_info($user) {
         }
     endif;
 }
-function get_twitter_timeline() {
+/**
+* Get my twitter timeline
+* get the Twitter object with the timeline of the logged user and transients it
+* @return Twitter object with the logged user timeline
+* @author hugosolar
+*/
+function get_my_twitter_timeline() {
 
     $option = get_option('twitter_token');
     if (!empty($option)) {
-        $content = get_transient( 'twitter_timeline' );
-        if (false === get_transient('twitter_timeline')) {
+        $content = get_transient( 'current_timeline' );
+        if (false === get_transient('current_timeline')) {
             $access_token = get_option('twitter_token');
             $connection = new TwitterOAuth(CONSUMER_KEY, CONSUMER_SECRET, $access_token['oauth_token'], $access_token['oauth_token_secret']);
             $content = $connection->get('statuses/user_timeline');
-            set_transient('twitter_timeline',$content,60*10);
+            set_transient('current_timeline',$content,60*10);
         }
         if (!empty($content)) {
             return $content;
@@ -355,6 +454,13 @@ function get_twitter_timeline() {
         return null;
     }
 }
+/**
+* Get twitter user timeline
+* get the Twitter object with the timeline of the specified user and transients it
+* @param string $user screen_name of user
+* @return Twitter object with the user timeline
+* @author hugosolar
+*/
 function get_twitter_user_timeline($user) {
 
     $option = get_option('twitter_token');
