@@ -13,8 +13,8 @@ License: GPL2
 require_once('oauth/twitteroauth.php');
 
 //Configure your consumer key and consumer secret
-define('CONSUMER_KEY', 'TAYMbcrcPWai5qyHlPBbg');
-define('CONSUMER_SECRET', 'cLCrkWWfbHHs3PwDoHCmJQqnXm0gOVYpLO3XU7hlQ');
+define('CONSUMER_KEY', '[add your consumer key]');
+define('CONSUMER_SECRET', '[add your consumer secret]');
 
 /**
 * oAuth Twitter Class
